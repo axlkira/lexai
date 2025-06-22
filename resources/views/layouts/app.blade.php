@@ -202,5 +202,51 @@
             }
         });
     </script>
+    <!-- SweetAlert2 -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script>
+        // Configuración de SweetAlert2 para el tema oscuro/claro
+        const theme = localStorage.getItem('theme') || 'light';
+        const isDark = theme === 'dark';
+        
+        // Función para mostrar la confirmación de eliminación
+        function confirmDelete(event, form) {
+            event.preventDefault();
+            
+            Swal.fire({
+                title: '¿Estás seguro?',
+                text: '¡No podrás revertir esto!',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#0ea5e9',
+                cancelButtonColor: '#ef4444',
+                confirmButtonText: 'Sí, eliminar',
+                cancelButtonText: 'Cancelar',
+                background: isDark ? '#1e293b' : '#ffffff',
+                color: isDark ? '#ffffff' : '#1f2937',
+                customClass: {
+                    popup: isDark ? 'dark' : ''
+                }
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    form.submit();
+                }
+            });
+        }
+        
+        // Escuchar cambios de tema
+        document.addEventListener('DOMContentLoaded', function() {
+            const themeToggle = document.getElementById('theme-toggle');
+            if (themeToggle) {
+                themeToggle.addEventListener('click', function() {
+                    const html = document.documentElement;
+                    const isDark = html.classList.contains('dark');
+                    // Actualizar el tema en SweetAlert2
+                    window.swalTheme = isDark ? 'dark' : 'light';
+                });
+            }
+        });
+    </script>
+    @stack('scripts')
 </body>
 </html>

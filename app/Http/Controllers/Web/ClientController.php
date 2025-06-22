@@ -7,27 +7,41 @@ use App\Models\Client;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
+use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 
 class ClientController extends Controller
 {
     public function index(Request $request)
     {
-        // Solo mostrar los clientes del usuario autenticado
+        $search = $request->input('search');
+        
+        // Construir la consulta base para los clientes del usuario autenticado
         $query = Auth::user()->clients();
-
-        if ($request->has('search')) {
-            $searchTerm = $request->input('search');
-            $query->where(function ($q) use ($searchTerm) {
-                $q->where('name', 'like', "%{$searchTerm}%")
-                  ->orWhere('last_name', 'like', "%{$searchTerm}%")
-                  ->orWhere('email', 'like', "%{$searchTerm}%")
-                  ->orWhere('document_number', 'like', "%{$searchTerm}%");
+        
+        // Aplicar búsqueda si hay un término de búsqueda
+        if ($search) {
+            $query->where(function($q) use ($search) {
+                $q->where('name', 'like', "%{$search}%")
+                  ->orWhere('last_name', 'like', "%{$search}%")
+                  ->orWhere('email', 'like', "%{$search}%")
+                  ->orWhere('document_number', 'like', "%{$search}%");
             });
         }
-
-        $clients = $query->latest()->paginate(10);
-        return view('clients.index', compact('clients'));
+        
+        // Obtener los resultados paginados
+        $clients = $query->latest()
+                        ->paginate(5)
+                        ->withQueryString();
+        
+        // Si hay búsqueda y no hay resultados, mostrar mensaje
+        if ($search && $clients->isEmpty()) {
+            session()->flash('info', 'No se encontraron clientes que coincidan con la búsqueda: ' . $search);
+        }
+            
+        return view('clients.index', compact('clients', 'search'));
     }
 
     public function create()
@@ -40,12 +54,18 @@ class ClientController extends Controller
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'last_name' => 'required|string|max:255',
-            'email' => 'required|string|email|max:255|unique:clients,email',
-            'document_type' => 'nullable|in:registro_civil,tarjeta_identidad,cedula_ciudadania,cedula_extranjeria,pasaporte,pep,ppt',
+            'email' => [
+                'required', 
+                'string', 
+                'email', 
+                'max:255', 
+                Rule::unique('clients')->where('user_id', auth()->id())
+            ],
+            'document_type' => 'required|in:registro_civil,tarjeta_identidad,cedula_ciudadania,cedula_extranjeria,pasaporte,pep,ppt',
             'document_number' => [
-                'nullable',
+                'required',
                 'string',
-                'unique:clients,document_number',
+                Rule::unique('clients')->where('user_id', auth()->id()),
                 function ($attribute, $value, $fail) use ($request) {
                     // Validar formato según el tipo de documento
                     $documentType = $request->input('document_type');
@@ -65,8 +85,21 @@ class ClientController extends Controller
                     }
                 },
             ],
-            'phone' => 'nullable|string|max:20',
+            'phone' => 'required|string|max:20',
             'address' => 'nullable|string|max:500',
+        ], [
+            'name.required' => 'El nombre es obligatorio.',
+            'last_name.required' => 'El apellido es obligatorio.',
+            'email.required' => 'El correo electrónico es obligatorio.',
+            'email.email' => 'El correo electrónico debe ser una dirección válida.',
+            'email.unique' => 'Ya tienes un cliente con este correo electrónico.',
+            'document_type.required' => 'El tipo de documento es obligatorio.',
+            'document_type.in' => 'El tipo de documento seleccionado no es válido.',
+            'document_number.required' => 'El número de documento es obligatorio.',
+            'document_number.unique' => 'Ya tienes un cliente con este número de documento.',
+            'phone.required' => 'El teléfono es obligatorio.',
+            'phone.max' => 'El teléfono no debe exceder los 20 caracteres.',
+            'address.max' => 'La dirección no debe exceder los 500 caracteres.'
         ]);
 
         // Asociar el cliente con el usuario autenticado
@@ -75,7 +108,8 @@ class ClientController extends Controller
         // Crear el cliente
         Client::create($validated);
 
-        return redirect()->route('clients.index')->with('success', 'Cliente creado exitosamente.');
+        return redirect()->route('clients.index')
+            ->with('success', 'Cliente creado exitosamente.');
     }
 
     public function show(Client $client)
@@ -118,21 +152,29 @@ class ClientController extends Controller
             \Log::error('Intento de actualización no autorizado. Usuario: ' . auth()->id() . ', Dueño: ' . $client->user_id);
             abort(403, 'No tienes permiso para actualizar este cliente.');
         }
-        
+
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'last_name' => 'required|string|max:255',
-            'email' => 'required|string|email|max:255|unique:clients,email,' . $client->id,
-            'document_type' => 'nullable|in:registro_civil,tarjeta_identidad,cedula_ciudadania,cedula_extranjeria,pasaporte,pep,ppt',
+            'email' => [
+                'required', 
+                'string', 
+                'email', 
+                'max:255', 
+                Rule::unique('clients')
+                    ->where('user_id', auth()->id())
+                    ->ignore($client->id)
+            ],
+            'document_type' => 'required|in:registro_civil,tarjeta_identidad,cedula_ciudadania,cedula_extranjeria,pasaporte,pep,ppt',
             'document_number' => [
-                'nullable',
+                'required',
                 'string',
-                'unique:clients,document_number,' . $client->id,
+                Rule::unique('clients')
+                    ->where('user_id', auth()->id())
+                    ->ignore($client->id),
                 function ($attribute, $value, $fail) use ($request) {
                     // Validar formato según el tipo de documento
                     $documentType = $request->input('document_type');
-                    
-                    if (empty($value)) return;
                     
                     if ($documentType === 'cedula_ciudadania' && !preg_match('/^[1-9][0-9]{6,10}$/', $value)) {
                         $fail('El número de cédula de ciudadanía debe contener entre 7 y 11 dígitos numéricos.');
@@ -149,21 +191,43 @@ class ClientController extends Controller
                     }
                 },
             ],
-            'phone' => 'nullable|string|max:20',
+            'phone' => 'required|string|max:20',
             'address' => 'nullable|string|max:500',
+        ], [
+            'name.required' => 'El nombre es obligatorio.',
+            'last_name.required' => 'El apellido es obligatorio.',
+            'email.required' => 'El correo electrónico es obligatorio.',
+            'email.email' => 'El correo electrónico debe ser una dirección válida.',
+            'email.unique' => 'Ya tienes un cliente con este correo electrónico.',
+            'document_type.required' => 'El tipo de documento es obligatorio.',
+            'document_type.in' => 'El tipo de documento seleccionado no es válido.',
+            'document_number.required' => 'El número de documento es obligatorio.',
+            'document_number.unique' => 'Ya tienes un cliente con este número de documento.',
+            'phone.required' => 'El teléfono es obligatorio.',
+            'phone.max' => 'El teléfono no debe exceder los 20 caracteres.',
+            'address.max' => 'La dirección no debe exceder los 500 caracteres.'
         ]);
 
         $client->update($validated);
 
-        return redirect()->route('clients.index')->with('success', 'Cliente actualizado exitosamente.');
+        return redirect()->route('clients.index')
+            ->with('success', 'Cliente actualizado exitosamente.');
     }
 
     public function destroy(Client $client)
     {
-        // Asegurarse de que el cliente pertenezca al usuario autenticado
-        $this->authorize('delete', $client);
+        // Verificar que el cliente pertenezca al usuario autenticado
+        if (auth()->id() !== $client->user_id) {
+            abort(403, 'No tienes permiso para eliminar este cliente.');
+        }
         
-        $client->delete();
-        return redirect()->route('clients.index')->with('success', 'Cliente eliminado exitosamente.');
+        try {
+            $client->delete();
+            return redirect()->route('clients.index')
+                ->with('success', 'Cliente eliminado exitosamente.');
+        } catch (\Exception $e) {
+            return redirect()->back()
+                ->with('error', 'Error al eliminar el cliente: ' . $e->getMessage());
+        }
     }
 }
