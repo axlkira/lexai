@@ -2,11 +2,17 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class LegalCase extends Model
 {
+    use HasFactory;
+
+
+
     use SoftDeletes;
 
     protected $fillable = [
@@ -41,6 +47,6 @@ class LegalCase extends Model
 
     public function documents()
     {
-        return $this->hasMany(Document::class);
+        return $this->hasMany(Document::class, 'case_id');
     }
 }

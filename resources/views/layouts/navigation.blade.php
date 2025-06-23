@@ -15,11 +15,14 @@
                     <x-nav-link :href="route('dashboard')" :active="request()->routeIs('dashboard')">
                         {{ __('Dashboard') }}
                     </x-nav-link>
-                    <x-nav-link :href="route('cases.index')" :active="request()->routeIs('cases.*')">
+                    <x-nav-link :href="route('legal-cases.index')" :active="request()->routeIs('legal-cases.index')">
                         {{ __('Mis Casos') }}
                     </x-nav-link>
                     <x-nav-link :href="route('clients.index')" :active="request()->routeIs('clients.*')">
                         {{ __('Clientes') }}
+                    </x-nav-link>
+                    <x-nav-link :href="route('documents.index')" :active="request()->routeIs('documents.*')">
+                        {{ __('Documentos') }}
                     </x-nav-link>
                 </div>
             </div>
@@ -76,11 +79,14 @@
             <x-responsive-nav-link :href="route('dashboard')" :active="request()->routeIs('dashboard')">
                 {{ __('Dashboard') }}
             </x-responsive-nav-link>
-            <x-responsive-nav-link :href="route('cases.index')" :active="request()->routeIs('cases.*')">
+            <x-responsive-nav-link :href="route('legal-cases.index')" :active="request()->routeIs('legal-cases.index')">
                 {{ __('Mis Casos') }}
             </x-responsive-nav-link>
             <x-responsive-nav-link :href="route('clients.index')" :active="request()->routeIs('clients.*')">
                 {{ __('Clientes') }}
+            </x-responsive-nav-link>
+            <x-responsive-nav-link :href="route('documents.index')" :active="request()->routeIs('documents.*')">
+                {{ __('Documentos') }}
             </x-responsive-nav-link>
         </div>
 
