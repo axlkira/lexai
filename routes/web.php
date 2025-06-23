@@ -5,6 +5,8 @@ use App\Http\Controllers\CasoController;
 use App\Http\Controllers\Web\CaseController;
 use App\Http\Controllers\Web\LegalCaseController;
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\Web\SettingController;
+use App\Http\Controllers\Web\AiAssistantController;
 
 Route::redirect('/', '/dashboard');
 
@@ -41,6 +43,15 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('documents/generate', [App\Http\Controllers\Web\DocumentController::class, 'generate'])->name('documents.generate');
     Route::get('ai/models/{provider}', [App\Http\Controllers\Web\DocumentController::class, 'getModels'])->name('ai.models');
     Route::get('documents/{document}/download', [App\Http\Controllers\Web\DocumentController::class, 'download'])->name('documents.download');
+
+    // Ruta para el Asistente IA
+    Route::post('/ai-assistant/chat', [AiAssistantController::class, 'handleChatRequest'])->name('ai.assistant.chat');
+});
+
+Route::middleware(['auth', 'verified'])->group(function () {
+    // Ruta para la página de ajustes
+    Route::get('/ajustes', [SettingController::class, 'index'])->name('settings.index');
+    Route::post('/ajustes', [SettingController::class, 'store'])->name('settings.store');
 });
 
 require __DIR__.'/auth.php';

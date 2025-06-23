@@ -93,6 +93,13 @@
                     </svg>
                     Informes
                 </a>
+                
+                <a href="{{ route('settings.index') }}" class="flex items-center px-4 py-3 text-gray-700 dark:text-gray-300 hover:bg-primary-50 dark:hover:bg-gray-700 {{ request()->routeIs('settings.*') ? 'bg-primary-50 dark:bg-gray-700 border-l-4 border-primary-500' : '' }}">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
+                    Ajustes
+                </a>
             </nav>
             
             <div class="absolute bottom-0 w-full p-4 border-t border-gray-200 dark:border-gray-700">
@@ -248,5 +255,121 @@
         });
     </script>
     @stack('scripts')
+
+    <!-- AI Assistant Component -->
+    <div x-data="aiAssistant()" x-cloak class="fixed bottom-6 right-6 z-50">
+        <!-- Botón Flotante -->
+        <button @click="toggleChat()" class="bg-primary-600 text-white rounded-full w-16 h-16 flex items-center justify-center shadow-lg hover:bg-primary-700 transition-transform transform hover:scale-110 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
+            <svg x-show="!isOpen" class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path></svg>
+            <svg x-show="isOpen" class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+        </button>
+
+        <!-- Ventana de Chat -->
+        <div x-show="isOpen" 
+             x-transition:enter="transition ease-out duration-300"
+             x-transition:enter-start="opacity-0 transform translate-y-4"
+             x-transition:enter-end="opacity-100 transform translate-y-0"
+             x-transition:leave="transition ease-in duration-200"
+             x-transition:leave-start="opacity-100 transform translate-y-0"
+             x-transition:leave-end="opacity-0 transform translate-y-4"
+             class="absolute bottom-20 right-0 w-full max-w-md sm:w-96 bg-white dark:bg-dark-800 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 flex flex-col h-[70vh] max-h-[70vh]">
+            
+            <div class="p-4 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
+                <h3 class="font-bold text-lg text-gray-800 dark:text-white">Asistente Legal IA</h3>
+                <button @click="isOpen = false" class="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-white">
+                     <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+            </div>
+
+            <div id="chat-body" class="flex-1 p-4 overflow-y-auto space-y-4">
+                <div class="flex items-start space-x-3">
+                    <div class="flex-shrink-0 w-10 h-10 bg-primary-100 dark:bg-primary-900 rounded-full flex items-center justify-center text-primary-600 dark:text-primary-300 font-bold">IA</div>
+                    <div class="bg-gray-100 dark:bg-dark-900 p-3 rounded-lg rounded-tl-none">
+                        <p class="text-sm text-gray-800 dark:text-gray-200">Hola, soy tu Asistente Legal. Puedes hacerme preguntas sobre doctrina, jurisprudencia o pedirme ayuda para redactar cláusulas.</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="p-4 border-t border-gray-200 dark:border-gray-700">
+                <div class="relative">
+                    <textarea id="chat-input" @keydown.enter.prevent="handleKeydown($event)" placeholder="Escribe tu mensaje..." class="w-full pr-12 py-2 px-4 bg-gray-100 dark:bg-dark-900 border border-gray-300 dark:border-gray-600 rounded-full focus:outline-none focus:ring-2 focus:ring-primary-500 text-gray-800 dark:text-gray-200 resize-none" rows="1"></textarea>
+                    <button @click="sendMessage()" class="absolute right-2 top-1/2 -translate-y-1/2 bg-primary-600 text-white rounded-full w-8 h-8 flex items-center justify-center hover:bg-primary-700">
+                        <svg class="w-5 h-5 transform rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path></svg>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    document.addEventListener('alpine:init', () => {
+        Alpine.data('aiAssistant', function () {
+            return {
+                isOpen: false,
+                toggleChat() {
+                    this.isOpen = !this.isOpen;
+                },
+                handleKeydown(event) {
+                    if (event.key === 'Enter' && !event.shiftKey) {
+                        this.sendMessage();
+                    }
+                },
+                sendMessage() {
+                    const input = document.getElementById('chat-input');
+                    const message = input.value.trim();
+                    if (!message) return;
+
+                    const chatBody = document.getElementById('chat-body');
+                    const userMessageHtml = `<div class="flex justify-end"><div class="bg-primary-600 text-white p-3 rounded-lg rounded-br-none max-w-xs">${message.replace(/\n/g, '<br>')}</div></div>`;
+                    chatBody.insertAdjacentHTML('beforeend', userMessageHtml);
+                    input.value = '';
+                    input.style.height = 'auto';
+                    chatBody.scrollTop = chatBody.scrollHeight;
+
+                    const loadingIndicatorHtml = `<div id="loading-indicator" class="flex items-start space-x-3"><div class="flex-shrink-0 w-10 h-10 bg-primary-100 dark:bg-primary-900 rounded-full flex items-center justify-center text-primary-600 dark:text-primary-300 font-bold">IA</div><div class="bg-gray-100 dark:bg-dark-900 p-3 rounded-lg rounded-tl-none"><p class="text-sm text-gray-800 dark:text-gray-200 italic">Escribiendo...</p></div></div>`;
+                    chatBody.insertAdjacentHTML('beforeend', loadingIndicatorHtml);
+                    chatBody.scrollTop = chatBody.scrollHeight;
+
+                    fetch('{{ route("ai.assistant.chat") }}', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+                        },
+                        body: JSON.stringify({ message: message })
+                    })
+                    .then(response => {
+                        if (!response.ok) throw new Error('La respuesta de la red no fue correcta.');
+                        return response.json();
+                    })
+                    .then(data => {
+                        document.getElementById('loading-indicator').remove();
+                        const aiReplyHtml = `<div class="flex items-start space-x-3"><div class="flex-shrink-0 w-10 h-10 bg-primary-100 dark:bg-primary-900 rounded-full flex items-center justify-center text-primary-600 dark:text-primary-300 font-bold">IA</div><div class="bg-gray-100 dark:bg-dark-900 p-3 rounded-lg rounded-tl-none max-w-xs"><p class="text-sm text-gray-800 dark:text-gray-200">${data.reply.replace(/\n/g, '<br>')}</p></div></div>`;
+                        chatBody.insertAdjacentHTML('beforeend', aiReplyHtml);
+                        chatBody.scrollTop = chatBody.scrollHeight;
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        const loadingIndicator = document.getElementById('loading-indicator');
+                        if(loadingIndicator) loadingIndicator.remove();
+                        const errorHtml = `<div class="flex items-start space-x-3"><div class="flex-shrink-0 w-10 h-10 bg-red-100 dark:bg-red-900 rounded-full flex items-center justify-center text-red-600 dark:text-red-300 font-bold">!</div><div class="bg-gray-100 dark:bg-dark-900 p-3 rounded-lg rounded-tl-none"><p class="text-sm text-red-500">Hubo un error al contactar al asistente.</p></div></div>`;
+                        chatBody.insertAdjacentHTML('beforeend', errorHtml);
+                        chatBody.scrollTop = chatBody.scrollHeight;
+                    });
+                }
+            }
+        });
+    });
+
+    document.addEventListener('DOMContentLoaded', () => {
+        const textarea = document.getElementById('chat-input');
+        if (textarea) {
+            textarea.addEventListener('input', () => {
+                textarea.style.height = 'auto';
+                textarea.style.height = (textarea.scrollHeight) + 'px';
+            });
+        }
+    });
+    </script>
 </body>
 </html>
